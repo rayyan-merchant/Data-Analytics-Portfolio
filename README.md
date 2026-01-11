@@ -19,7 +19,7 @@ The goal of this repository is to demonstrate proficiency in:
 ---
 
 
-## 📊 Types of Projects Included
+## Types of Projects Included
 
 This repo features a variety of analytic project types:
 
@@ -53,8 +53,8 @@ Dimensional modeling, star schema, fact tables, transformations
 
 | # | Project            | Domain     | Tools Used   | Status         |
 | - | ------------------ | ---------- | ------------ | -------------- |
-| 1 | Cancer Patient EDA | Healthcare | Python (EDA) | 🔄 In Progress |
-| 2 | ...                | ...        | ...          | ...            |
+| 1 | Cancer Patient EDA | Healthcare | Python       |  In Progress |
+
 
 > More will be added as projects are pushed.
 
@@ -73,7 +73,7 @@ This repository is designed for:
 ---
 
 
-## 📢 Connect with Me
+## Connect with Me
 
 <div align="center">
     <a href="https://www.linkedin.com/in/rayyanmerchant2004/" target="_blank">
@@ -86,5 +86,5 @@ This repository is designed for:
         <img src="https://img.shields.io/badge/GitHub-%23181717.svg?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
     </a>
 </div>
-```
+
 
