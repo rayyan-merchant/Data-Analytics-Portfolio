@@ -53,7 +53,14 @@ Dimensional modeling, star schema, fact tables, transformations
 
 | # | Project            | Domain     | Tools Used   | Status         |
 | - | ------------------ | ---------- | ------------ | -------------- |
-| 1 | Cancer Patient EDA | Healthcare | Python       |  In Progress |
+| 1 | Cancer Data Analysis | Healthcare | Python       |  Done          |
+| 2 | SQL DWH Project | Business | SQL       |  Done          |
+| 3 | Performance Dashoard using Excel | Corporate | Excel       |  Done          |
+| 4 | Python App for SQL Operations | No code SQL | SQL, Python, Streamlit      |  Done          |
+| 5 | PowerBI Real time Dashboard | API Data | PowerBI       |  Done          |
+| 6 | Database Creation and Migration | Hospital | SQL       |  Done          |
+| 7 | EDA using SQL | EDA | SQL       |  Done          |
+| 8 | ETL and Scheduling Automation App | ETL | Python, SQL       |  In Progress          |
 
 
 > More will be added as projects are pushed.
