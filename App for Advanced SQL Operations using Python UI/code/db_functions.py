@@ -1,59 +1,79 @@
-import mysql.connector
+import psycopg2
+from decimal import Decimal
 
 def connect_to_db():
-    return mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="CampusX@21",
-    database="dummy_project")
+    return psycopg2.connect(
+        host="localhost",
+        user="postgres",
+        password="rayyan123",
+        database="dummy_db",
+        port=5432
+    )
+
 
 
 def get_basic_info(cursor):
     queries = {
-        "Total Suppliers": "SELECT COUNT(*) AS count FROM suppliers",
+        "Total Suppliers": "SELECT COUNT(*) AS total_suppliers FROM suppliers",
 
-        "Total Products": "SELECT COUNT(*) AS count FROM products",
+        "Total Products": "SELECT COUNT(*) AS total_products FROM products",
 
-        "Total Categories Dealing": "SELECT COUNT(DISTINCT category) AS count FROM products",
+        "Total Categories Dealing": "SELECT COUNT(DISTINCT category) AS total_categories FROM products",
 
         "Total Sale Value (Last 3 Months)": """
-        SELECT ROUND(SUM(ABS(se.change_quantity) * p.price), 2) AS total_sale
-        FROM stock_entries se
-        JOIN products p ON se.product_id = p.product_id
-        WHERE se.change_type = 'Sale'
-        AND se.entry_date >= (
-        SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH) FROM stock_entries)
+            SELECT ROUND(SUM(ABS(se.change_quantity) * p.price)::numeric, 2) AS total_sales_value_in_last_3_months
+            FROM stock_entries se
+            JOIN products p ON p.product_id = se.product_id
+            WHERE se.change_type = 'Sale'
+              AND se.entry_date >= (
+                SELECT MAX(entry_date) - INTERVAL '3 months'
+                FROM stock_entries
+            )
         """,
 
         "Total Restock Value (Last 3 Months)": """
-        SELECT ROUND(SUM(se.change_quantity * p.price), 2) AS total_restock
-        FROM stock_entries se
-        JOIN products p ON se.product_id = p.product_id
-        WHERE se.change_type = 'Restock'
-        AND se.entry_date >= (
-        SELECT DATE_SUB(MAX(entry_date), INTERVAL 3 MONTH) FROM stock_entries)
+            SELECT ROUND(SUM(ABS(se.change_quantity) * p.price)::numeric, 2) AS total_restock_value_in_last_3_months
+            FROM stock_entries se
+            JOIN products p ON p.product_id = se.product_id
+            WHERE se.change_type = 'Restock'
+              AND se.entry_date >= (
+                SELECT MAX(entry_date) - INTERVAL '3 months'
+                FROM stock_entries
+            )
         """,
 
         "Below Reorder & No Pending Reorders": """
-        SELECT COUNT(*) AS below_reorder
-        FROM products p
-        WHERE p.stock_quantity < p.reorder_level
-        AND p.product_id NOT IN (
-        SELECT DISTINCT product_id FROM reorders WHERE status = 'Pending')
+            SELECT COUNT(*) AS products_needing_restock
+            FROM products p
+            WHERE p.stock_quantity < p.reorder_level
+              AND p.product_id NOT IN (
+                  SELECT DISTINCT product_id FROM reorders WHERE status = 'Pending'
+              )
         """
     }
 
-    result = {}
+    results = {}
     for label, query in queries.items():
         cursor.execute(query)
-        row = cursor.fetchone()
-        result[label] = list(row.values())[0]
+        row = cursor.fetchone()   # tuple like (value,)
+        value = row[0]
 
-    return result
+        # Convert Decimal → float for JSON/dashboard compatibility
+        if isinstance(value, Decimal):
+            value = float(value)
+        results[label] = value
+
+    return results
+
+
+
 
 def get_additonal_tables(cursor):
     queries = {
-        "Suppliers Contact Details": "SELECT supplier_name, contact_name, email, phone FROM suppliers",
+        "Suppliers Contact Details": """
+            SELECT supplier_name, contact_name, email, phone
+            FROM suppliers
+        """,
 
         "Products with Supplier and Stock": """
             SELECT 
@@ -80,21 +100,24 @@ def get_additonal_tables(cursor):
 
     return tables
 
-def get_categories(cursor):
-    cursor.execute("select Distinct category  from products  order by category  asc")
-    rows= cursor.fetchall()
+
+
+def get_categories(cursor1):
+    cursor1.execute("select Distinct category  from products  order by category  asc")
+    rows= cursor1.fetchall()
     return [row["category"] for row in rows]
 
+def get_suppliers(cursor1):
+    cursor1.execute("select supplier_id , supplier_name from suppliers order by  supplier_name asc")
+    return cursor1.fetchall()
 
-def get_suppliers(cursor):
-    cursor.execute("select supplier_id , supplier_name from suppliers order by  supplier_name asc")
-    return cursor.fetchall()
 
 def add_new_manual_id(cursor, db, p_name , p_category , p_price , p_stock , p_reorder, p_supplier):
     proc_call= "call AddNewProductManualID(%s, %s, %s ,%s ,%s, %s)"
     params= (p_name , p_category , p_price , p_stock , p_reorder, p_supplier)
     cursor.execute(proc_call, params)
     db.commit()
+
 
 def get_all_products(cursor):
     cursor.execute("select product_id, product_name from products order by  product_name")
@@ -105,15 +128,17 @@ def get_product_history(cursor, product_id):
     cursor.execute(query , (product_id,))
     return cursor.fetchall()
 
+
+
 def place_reorder(cursor, db, product_id , reorder_quantity):
     query= """
          insert into reorders (reorder_id,product_id ,reorder_quantity,reorder_date ,status)
          select 
-         max(reorder_id)+1,
+         COALESCE(MAX(reorder_id) + 1, 1),
          %s,
          %s,
-         curdate(),
-         "Ordered"
+         CURRENT_DATE,
+         'Ordered'
          from reorders;
          """
     cursor.execute(query,(product_id, reorder_quantity))
@@ -128,6 +153,7 @@ def get_pending_reorders(cursor):
     """)
     return cursor.fetchall()
 
+
 def mark_reorder_as_received(cursor, db, reorder_id):
-    cursor.callproc("MarkReorderAsReceived",[reorder_id])
+    cursor.execute("CALL MarkReorderAsReceived(%s)", (reorder_id,))
     db.commit()

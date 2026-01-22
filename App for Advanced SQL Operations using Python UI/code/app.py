@@ -2,14 +2,15 @@ from logging import exception
 
 import streamlit as st
 import pandas as pd
+from psycopg2.extras import RealDictCursor
 from db_functions import(
-connect_to_db,
-get_basic_info,
-get_additonal_tables,
-get_categories,
-get_suppliers,
-add_new_manual_id, get_all_products, get_product_history, place_reorder,
-get_pending_reorders,mark_reorder_as_received
+    connect_to_db,
+    get_basic_info,
+    get_additonal_tables,
+    get_categories,
+    get_suppliers,
+    add_new_manual_id, get_all_products, get_product_history, place_reorder,
+    get_pending_reorders,mark_reorder_as_received
 )
 
 # sidebar
@@ -20,9 +21,10 @@ option = st.sidebar.radio("Select Option:", ["Basic Information","Operational Ta
 # main space
 st.title("Inventory and Supply Chain Dashboard")
 db=connect_to_db()
-cursor=db.cursor(dictionary=True)
+cursor=db.cursor()
 
- # --------------------- BASIC INFORMATION PAGE ---------------4
+
+# BASIC INFORMATION PAGE
 if option=="Basic Information":
     st.header("Basic Metrics")
 
@@ -35,28 +37,37 @@ if option=="Basic Information":
     for i in range(3):
         cols[i].metric(label=keys[i], value= basic_info[keys[i]])
 
-
     cols= st.columns(3)
     for i in range(3,6):
         cols[i-3].metric(label=keys[i], value= basic_info[keys[i]])
 
     st.divider()
 
+
     # Fetch and display detailed tables
     tables=get_additonal_tables(cursor)
+
     for labels, data in tables.items():
        st.header(labels)
        df= pd.DataFrame(data)
        st.dataframe(df)
        st.divider()
 
+  
+
+# OPERATIONAL TASKS PAGE
 elif option == "Operational Tasks":
     st.header("Operational Tasks")
+
+    db=connect_to_db()
+    cursor1=db.cursor(cursor_factory=RealDictCursor) 
+
     selected_task= st.selectbox("Choose an Task",["Add New Product","Product History","Place Reorder","Receive Reorder"])
+    
     if selected_task =="Add New Product":
         st.header("Add New Product")
-        categories=get_categories(cursor)
-        suppliers= get_suppliers(cursor)
+        categories=get_categories(cursor1)
+        suppliers= get_suppliers(cursor1)
 
         with st.form("Add_Product_Form"):
             product_name=st.text_input("Product_Name")
@@ -81,26 +92,28 @@ elif option == "Operational Tasks":
                     st.error("Please Enter the Product Name.")
                 else:
                     try:
-                        add_new_manual_id(cursor,
+                        add_new_manual_id(cursor1,
                                           db,
                                           product_name,
                                           product_category,
                                           product_price,
                                           product_stock,
                                           product_level,
-                                          supplier_id,
+                                          supplier_id
                                           )
                         st.success(f"Product {product_name} added successfully")
                     except Exception as e:
                              st.error("f Error adding the Product {e}")
 
-# ----------------------------- product History ---------------------
+
+
+# product History
 
     if selected_task== "Product History":
         st.header("Product Inventory History")
 
         #Get product List
-        products=get_all_products(cursor)
+        products=get_all_products(cursor1)
         product_names=[p['product_name'] for p in products]
         product_ids = [p['product_id'] for p in products]
 
@@ -116,11 +129,11 @@ elif option == "Operational Tasks":
             else:
                 st.info("No History found for the product Selected")
 
-#---------- Place reorder -----------
+# Place reorder
     if selected_task=="Place Reorder":
         st.header("Place an Reorder")
 
-        products = get_all_products(cursor)
+        products = get_all_products(cursor1)
         product_names = [p['product_name'] for p in products]
         product_ids = [p['product_id'] for p in products]
 
@@ -135,18 +148,20 @@ elif option == "Operational Tasks":
             else:
                 selected_product_id = product_ids[product_names.index(selected_product_name)]
                 try:
-                    place_reorder(cursor, db, selected_product_id, reorder_qty)
+                    place_reorder(cursor1, db, selected_product_id, reorder_qty)
                     st.success(f"Order placed for {selected_product_name} with quantity {reorder_qty}")
                 except Exception as e:
                     st.error(f"Error Placing reorder {e}")
 
 
-#----------------RECEIVING AN ORDER ------------------
+# Recieving an Order
 
     elif selected_task=="Receive Reorder":
         st.header("Mark Reorder as Received")
+
         # Fetch orders in Ordered Stage
-        pending_reorders= get_pending_reorders(cursor)
+        pending_reorders= get_pending_reorders(cursor1)
+
         if not pending_reorders:
             st.info("No Pending Orders to Receive.")
         else:
@@ -160,7 +175,7 @@ elif option == "Operational Tasks":
 
                 if st.button("Mark as Received"):
                     try:
-                       mark_reorder_as_received(cursor, db  , selected_reorder_id)
+                       mark_reorder_as_received(cursor1, db  , selected_reorder_id)
                        st.success(f"Reorder ID {selected_reorder_id} marked as received")
                     except Exception as e:
                         st.error(f"Erroe {e}")
